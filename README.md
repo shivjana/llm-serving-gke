@@ -94,7 +94,7 @@ docs/                 Phase write-ups, LinkedIn launch post, demo shot list
 
 ## Docs
 
-- `docs/phase1-interview-writeup.md` — full build log (21 pages)
+- `docs/phase-1-llm-serving-gke.pdf` — full build log (21 pages)
 - `docs/phase2-observability.md` — probes, Prometheus, dashboard, autoscaling design
 - `docs/linkedin-launch-post.md` — the announcement text
 - `docs/demo-shot-list.md` — 60–90s demo video plan

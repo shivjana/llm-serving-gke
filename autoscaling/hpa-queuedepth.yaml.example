@@ -1,0 +1,38 @@
+# STATUS: DESIGNED, NOT APPLIED — READ THIS FIRST
+#
+# This HPA scales on vLLM queue depth via the custom-metrics-stackdriver-adapter
+# (Cloud Monitoring -> custom.metrics.k8s.io). The design is complete and the
+# mechanism is sound. It is deliberately NOT activated because the binding
+# constraint is GPU quota, verified live on 2026-09-29:
+#
+#   regional L4 quota (1) < node-pool max size (1) < HPA max replicas (3)
+#
+# Under load this HPA would correctly demand a 2nd replica — which would sit
+# Pending forever (Insufficient nvidia.com/gpu; autoscaler capped at max node
+# group size). Activating it would be theater. Apply this when quota headroom
+# exists.
+#
+# Prerequisites if you apply it:
+# 1. Deploy custom-metrics-stackdriver-adapter with Cloud Monitoring read access
+# 2. Confirm the metric is visible: kubectl get --raw \
+#      "/apis/custom.metrics.k8s.io/v1beta1" | grep vllm
+# 3. Request additional L4 quota AND raise the gpu-pool max size above 1
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-queuedepth
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vllm
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Pods   # per-pod average queue depth, NOT utilization %
+    pods:
+      metric:
+        name: vllm_requests_waiting
+      target:
+        type: AverageValue
+        averageValue: 5

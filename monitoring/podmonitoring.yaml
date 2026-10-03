@@ -1,0 +1,21 @@
+# Managed Service for Prometheus scrape config.
+# No self-managed Prometheus server needed: Google's collector (DaemonSet in
+# gmp-system) scrapes this and writes into Cloud Monitoring.
+#
+# GOTCHA: Cloud Monitoring preserves the colon in metric names, e.g.
+#   prometheus.googleapis.com/vllm:num_requests_waiting/gauge
+# (NOT vllm_num_requests_waiting). Verify via the metricDescriptors API.
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: vllm
+  labels:
+    app: vllm
+spec:
+  selector:
+    matchLabels:
+      app: vllm
+  endpoints:
+  - port: 8000
+    path: /metrics
+    interval: 30s

@@ -1,0 +1,16 @@
+# ClusterIP Service — no public endpoint by design.
+# Access via: kubectl port-forward svc/vllm 8000:8000
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+  labels:
+    app: vllm
+spec:
+  type: ClusterIP
+  selector:
+    app: vllm
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000

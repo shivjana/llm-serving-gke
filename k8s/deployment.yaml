@@ -1,0 +1,63 @@
+# vLLM Deployment — as applied 2026-10-02
+# Notes on the non-obvious fields:
+# - strategy: Recreate — a single GPU cannot do rolling updates (new pod needs the
+#   GPU before the old one releases it -> deadlock).
+# - enableServiceLinks: false — K8s injects {SVC}_SERVICE_HOST/PORT env vars into
+#   every pod; vLLM's config parsing choked on them (VLLM_PORT poisoning).
+# - startupProbe with a 5-minute budget — TinyLlama takes ~3 min to load into the
+#   L4; without this, slow starts look like failed health checks.
+# - No CPU limit (bursty inference); CPU request 1 core for scheduling.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  labels:
+    app: vllm
+spec:
+  replicas: 1   # scale to 0 when idle: kubectl scale deploy vllm --replicas=0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+    spec:
+      enableServiceLinks: false
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:latest   # vLLM 0.30.0 at time of build
+        args:
+        - "--model"
+        - "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+        - "--max-model-len"
+        - "2048"
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            cpu: "1"
+            nvidia.com/gpu: "1"
+          limits:
+            nvidia.com/gpu: "1"
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          periodSeconds: 10
+          failureThreshold: 30   # 5-minute budget for model load
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          periodSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          periodSeconds: 30      # gentle: slow generations must never trigger this
+          failureThreshold: 3
